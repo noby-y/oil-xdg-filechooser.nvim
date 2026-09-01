@@ -14,7 +14,8 @@ options; nothing is written outside `$HOME` and nothing needs root.
     dir = vim.fn.stdpath('config') .. '/pkg/oil-filechooser',
     name = 'oil-filechooser',
     lazy = false,
-    dependencies = { 'stevearc/oil.nvim' },
+    -- dependencies = { 'stevearc/oil.nvim' }, -- both plugins work
+    dependencies = { 'barrettruth/canola.nvim' },
     opts = {},
 }
 ```
