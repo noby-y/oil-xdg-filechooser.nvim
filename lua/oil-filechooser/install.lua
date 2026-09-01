@@ -258,7 +258,9 @@ local function run_all(commands, cb)
 		index = index + 1
 		local cmd = commands[index]
 		if not cmd then
-			return cb(errors)
+			return vim.schedule(function()
+				cb(errors)
+			end)
 		end
 		vim.system(cmd, { text = true }, function(result)
 			if result.code ~= 0 then
