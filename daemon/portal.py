@@ -80,12 +80,13 @@ REQUEST_XML = f"""
 </node>
 """
 
-# Only used when the config file is missing
+# Priority order when nothing else identifies a terminal, and the table
+# `detect_terminal` checks $TERMINAL against.
 FALLBACK_TERMINALS = [
     ["kitty", "--class", APP, "-e"],
     ["ghostty", f"--class={APP}", "-e"],
-    ["foot", f"--app-id={APP}", "-e"],
     ["wezterm", "start", "--class", APP, "--"],
+    ["foot", f"--app-id={APP}", "-e"],
     ["alacritty", "--class", APP, "-e"],
 ]
 
@@ -94,36 +95,22 @@ def log(*args):
     print(f"{APP}:", *args, file=sys.stderr, flush=True)
 
 
-def config_path():
-    base = GLib.get_user_config_dir()
-    return os.path.join(base, APP, "config.json")
+def detect_terminal():
+    """Pick a terminal argv.
 
-
-def load_config():
-    """Read the config the Neovim plugin writes, falling back to a usable default.
-
-    Re-read per request, so changing the plugin's options only costs a Neovim
-    restart rather than a daemon restart.
+    $TERMINAL is the conventional way a user names their terminal of choice
+    for scripts like this (set in a shell profile or by the window manager). Falls back
+    to the first available terminal in priority order if $TERMINAL is unset
+    or not on $PATH.
     """
-    config = {}
-    try:
-        with open(config_path(), encoding="utf-8") as fh:
-            config = json.load(fh)
-    except FileNotFoundError:
-        pass
-    except (OSError, ValueError) as err:
-        log(f"ignoring unreadable config: {err}")
-
-    terminal = config.get("terminal")
-    if not terminal:
-        terminal = next(
-            (t for t in FALLBACK_TERMINALS if shutil.which(t[0])),
-            FALLBACK_TERMINALS[0],
-        )
-    return {
-        "terminal": [str(a) for a in terminal],
-        "editor": [str(a) for a in config.get("editor") or ["nvim"]],
-    }
+    wanted = os.environ.get("TERMINAL")
+    if wanted and shutil.which(wanted):
+        known = next((t for t in FALLBACK_TERMINALS if t[0] == wanted), None)
+        return known or [wanted, "-e"]
+    return next(
+        (t for t in FALLBACK_TERMINALS if shutil.which(t[0])),
+        FALLBACK_TERMINALS[0],
+    )
 
 
 def runtime_dir():
@@ -161,10 +148,14 @@ def unpack(variant):
         entries = {}
         for index in range(variant.n_children()):
             entry = variant.get_child_value(index)
-            entries[unpack(entry.get_child_value(0))] = unpack(entry.get_child_value(1))
+            entries[unpack(entry.get_child_value(0))] = unpack(
+                entry.get_child_value(1))
         return entries
     if kind.startswith("a") or kind.startswith("("):
-        return [unpack(variant.get_child_value(i)) for i in range(variant.n_children())]
+        return [
+            unpack(variant.get_child_value(i))
+            for i in range(variant.n_children())
+        ]
     return variant.unpack()
 
 
@@ -174,12 +165,12 @@ def parse_filter(entry):
         return None
     name, patterns = entry[0], entry[1]
     return {
-        "name": name,
-        "globs": [
-            {"kind": pattern[0], "pattern": pattern[1]}
-            for pattern in patterns
-            if len(pattern) >= 2
-        ],
+        "name":
+        name,
+        "globs": [{
+            "kind": pattern[0],
+            "pattern": pattern[1]
+        } for pattern in patterns if len(pattern) >= 2],
     }
 
 
@@ -189,13 +180,16 @@ def parse_options(raw):
     for key in ("multiple", "directory", "modal"):
         if isinstance(raw.get(key), bool):
             options[key] = raw[key]
-    for key in ("accept_label", "current_name", "current_folder", "current_file"):
+    for key in ("accept_label", "current_name", "current_folder",
+                "current_file"):
         if isinstance(raw.get(key), str):
             options[key] = raw[key]
     if isinstance(raw.get("files"), list):
         options["files"] = [f for f in raw["files"] if isinstance(f, str)]
     if isinstance(raw.get("filters"), list):
-        options["filters"] = [f for f in map(parse_filter, raw["filters"]) if f]
+        options["filters"] = [
+            f for f in map(parse_filter, raw["filters"]) if f
+        ]
     if raw.get("current_filter"):
         current = parse_filter(raw["current_filter"])
         if current:
@@ -236,16 +230,22 @@ class Dialog:
         invocation, self.invocation = self.invocation, None
         payload = GLib.Variant(
             "(ua{sv})",
-            (response, {k: GLib.Variant("as", v) for k, v in (results or {}).items()}),
+            (response, {
+                k: GLib.Variant("as", v)
+                for k, v in (results or {}).items()
+            }),
         )
         invocation.return_value(payload)
 
 
 class Backend:
+
     def __init__(self, connection):
         self.connection = connection
-        self.filechooser_info = Gio.DBusNodeInfo.new_for_xml(FILECHOOSER_XML).interfaces[0]
-        self.request_info = Gio.DBusNodeInfo.new_for_xml(REQUEST_XML).interfaces[0]
+        self.filechooser_info = Gio.DBusNodeInfo.new_for_xml(
+            FILECHOOSER_XML).interfaces[0]
+        self.request_info = Gio.DBusNodeInfo.new_for_xml(
+            REQUEST_XML).interfaces[0]
         self.dialogs = {}
 
         connection.register_object_with_closures2(
@@ -263,7 +263,8 @@ class Backend:
             return GLib.Variant("u", 3)
         return None
 
-    def on_method_call(self, _conn, _sender, _path, _iface, method, params, invocation):
+    def on_method_call(self, _conn, _sender, _path, _iface, method, params,
+                       invocation):
         if method not in ("OpenFile", "SaveFile", "SaveFiles"):
             invocation.return_error_literal(
                 Gio.dbus_error_quark(),
@@ -278,12 +279,13 @@ class Backend:
             log(f"{method} failed: {err}")
             invocation.return_value(GLib.Variant("(ua{sv})", (OTHER, {})))
 
-    def on_request_call(self, _conn, _sender, path, _iface, method, _params, invocation):
+    def on_request_call(self, _conn, _sender, path, _iface, method, _params,
+                        invocation):
         """Close() on the request handle: the application gave up on the dialog."""
         if method != "Close":
-            invocation.return_error_literal(
-                Gio.dbus_error_quark(), Gio.DBusError.UNKNOWN_METHOD, method
-            )
+            invocation.return_error_literal(Gio.dbus_error_quark(),
+                                            Gio.DBusError.UNKNOWN_METHOD,
+                                            method)
             return
         invocation.return_value(None)
         dialog = self.dialogs.get(path)
@@ -295,13 +297,14 @@ class Backend:
     # NOTE: Dialog lifecycle
 
     def start(self, handle, method, app_id, title, raw_options, invocation):
-        config = load_config()
+        terminal = detect_terminal()
         dialog = Dialog(handle, method, invocation)
 
         directory = runtime_dir()
         stamp = f"{os.getpid()}-{id(dialog):x}"
         dialog.request_file = os.path.join(directory, f"request-{stamp}.json")
-        dialog.response_file = os.path.join(directory, f"response-{stamp}.json")
+        dialog.response_file = os.path.join(directory,
+                                            f"response-{stamp}.json")
 
         request = {
             "method": method,
@@ -311,13 +314,16 @@ class Backend:
             "response": dialog.response_file,
             "options": parse_options(raw_options),
         }
-        with open(os.open(dialog.request_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w", encoding="utf-8") as fh:
+        with open(os.open(dialog.request_file,
+                          os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600),
+                  "w",
+                  encoding="utf-8") as fh:
             json.dump(request, fh)
 
         launcher = Gio.SubprocessLauncher.new(Gio.SubprocessFlags.NONE)
         launcher.setenv("OIL_FILECHOOSER_REQUEST", dialog.request_file, True)
         try:
-            dialog.process = launcher.spawnv(config["terminal"] + config["editor"])
+            dialog.process = launcher.spawnv(terminal + ["nvim"])
         except GLib.Error:
             # Nothing will ever read the request file if the terminal is missing.
             dialog.cleanup()
@@ -327,8 +333,7 @@ class Backend:
         # it an application that gives up leaves the dialog on screen forever.
         try:
             dialog.registration = self.connection.register_object_with_closures2(
-                handle, self.request_info, self.on_request_call, None, None
-            )
+                handle, self.request_info, self.on_request_call, None, None)
         except GLib.Error as err:
             log(f"could not export request {handle}: {err}")
 
@@ -371,7 +376,9 @@ class Backend:
             return []
         if payload.get("response", SUCCESS) != SUCCESS:
             return []
-        return [p for p in payload.get("paths") or [] if isinstance(p, str) and p]
+        return [
+            p for p in payload.get("paths") or [] if isinstance(p, str) and p
+        ]
 
 
 def main():

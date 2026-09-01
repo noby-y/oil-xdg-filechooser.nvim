@@ -18,7 +18,7 @@ local function is_marked(path)
 	return state ~= nil and state.marked[path] == true
 end
 
--- -- Filters ------------------------------------------------------------------
+-- NOTE: Filters
 
 local glob_cache = {}
 
@@ -79,7 +79,7 @@ local function filter_summary()
 	return table.concat(patterns, ' ')
 end
 
--- -- Answering ----------------------------------------------------------------
+-- NOTE: Answering
 
 --- @param paths string[]
 local function accept(paths)
@@ -213,7 +213,7 @@ local function files_in_range(bufnr, first, last)
 	return files
 end
 
--- -- Winbar --------------------------------------------------------------------
+-- NOTE: Winbar
 
 local ACTIONS = {
 	OpenFile = 'Open',
@@ -266,7 +266,7 @@ function M.winbar()
 	return table.concat(parts, ' ') .. ' ' .. table.concat(hints, '  ') .. '%*'
 end
 
--- -- Keymaps -------------------------------------------------------------------
+-- NOTE: Keymaps
 
 --- @param bufnr integer
 local function map_buffer(bufnr)
@@ -343,7 +343,7 @@ local function map_buffer(bufnr)
 	end
 end
 
--- -- Entry point ----------------------------------------------------------------
+-- NOTE: Entry point
 
 --- @param request OilFileChooserRequest
 --- @param opts table

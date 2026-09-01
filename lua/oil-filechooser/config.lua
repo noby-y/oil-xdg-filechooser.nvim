@@ -6,8 +6,8 @@ local M = {}
 local TERMINALS = {
 	kitty = { 'kitty', '--class', '{class}', '-e' },
 	ghostty = { 'ghostty', '--class={class}', '-e' },
-	foot = { 'foot', '--app-id={class}', '-e' },
 	wezterm = { 'wezterm', 'start', '--class', '{class}', '--' },
+	foot = { 'foot', '--app-id={class}', '-e' },
 	alacritty = { 'alacritty', '--class', '{class}', '-e' },
 	['xterm'] = { 'xterm', '-class', '{class}', '-e' },
 }
@@ -18,7 +18,7 @@ M.defaults = {
 	--- Full argv the daemon prefixes to `editor`, or nil to pick the first
 	--- entry of `terminal_priority` that is actually installed.
 	terminal = nil,
-	terminal_priority = { 'kitty', 'ghostty', 'foot', 'wezterm', 'alacritty', 'xterm' },
+	terminal_priority = { 'kitty', 'ghostty', 'wezterm', 'foot', 'alacritty', 'xterm' },
 	--- The editor argv itself. Anything here runs with $OIL_FILECHOOSER_REQUEST set.
 	editor = { 'nvim' },
 
@@ -35,7 +35,7 @@ M.defaults = {
 		cancel = 'q',
 	},
 
-	--- Show what the application asked for above the oil window.
+	--- Show what the application asked for + keymap hints above the oil window.
 	winbar = true,
 	--- Ask before returning a file that matches none of the request's filters.
 	--- The application is free to reject it, usually silently.

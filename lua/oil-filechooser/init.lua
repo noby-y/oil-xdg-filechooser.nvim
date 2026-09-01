@@ -1,5 +1,3 @@
---- Neovim + oil as the system file dialog.
----
 --- Two jobs, and which one runs is decided by $OIL_FILECHOOSER_REQUEST:
 ---
 --- * In a Neovim the portal daemon started, this is the dialog: open oil and

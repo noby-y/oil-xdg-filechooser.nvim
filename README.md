@@ -1,8 +1,8 @@
 # oil-filechooser
 
-Neovim and [oil](https://github.com/stevearc/oil.nvim) as the system file
-dialog. Every application that asks the XDG portal for a file — browser upload
-buttons, Save As dialogs, Flatpak apps — gets an oil buffer in a floating
+[Oil.nvim](https://github.com/stevearc/oil.nvim) as the system file dialog.
+Every application that asks the XDG portal for a file - browser upload
+buttons, Save As dialogs, etc - gets an oil buffer in a floating
 terminal instead of the GTK chooser.
 
 Installing it is adding the plugin. It registers itself with
@@ -11,21 +11,20 @@ options; nothing is written outside `$HOME` and nothing needs root.
 
 ```lua
 {
-  dir = vim.fn.stdpath('config') .. '/pkg/oil-filechooser',
-  name = 'oil-filechooser',
-  lazy = false,
-  dependencies = { 'stevearc/oil.nvim' },
-  build = function(plugin)
-    vim.opt.runtimepath:append(plugin.dir)
-    require('oil-filechooser').install()
-  end,
-  opts = {},
+    dir = vim.fn.stdpath('config') .. '/pkg/oil-filechooser',
+    name = 'oil-filechooser',
+    lazy = false,
+    dependencies = { 'stevearc/oil.nvim' },
+    build = function(plugin)
+        vim.opt.runtimepath:append(plugin.dir)
+        require('oil-filechooser').install()
+    end,
+    opts = {},
 }
 ```
 
 Requires `python-gobject` (the daemon is a GDBus service), systemd user
-services, and a terminal — kitty, ghostty, foot, wezterm or alacritty, whichever
-is installed first.
+services, and a terminal.
 
 ## Using it
 
@@ -38,41 +37,45 @@ used.
 | `<Tab>` | Mark a file. Multi-select requests only, and the only way to pick from two directories. |
 | `<C-y>` | Return the directory you are in. For a save request, ask for a filename in it first. |
 | `<CR>` (visual) | Return every file in the range. Multi-select requests only. |
-| `q` | Cancel. So does quitting Neovim any other way. |
+| `q` | Cancel. Quitting Neovim in any other way does the same. |
 
 It is an ordinary Neovim: rename, delete and create files in the oil buffer,
 open a terminal, edit something on the way. The application stays blocked until
 the process exits.
 
 If the file you return matches none of the request's filters you are asked to
-confirm, because the application is free to reject it — usually silently.
+confirm, because the application is free to reject it - usually silently.
 
 ## Options
 
 ```lua
 opts = {
-  class = 'oil-filechooser',   -- window class of the dialog, for WM rules
-  terminal = nil,              -- full argv, or nil to detect one
-  terminal_priority = { 'kitty', 'ghostty', 'foot', 'wezterm', 'alacritty', 'xterm' },
-  editor = { 'nvim' },
+    class = 'oil-filechooser',   -- window class of the dialog, for WM rules
 
-  keymaps = {
-    accept = '<CR>',
-    accept_dir = '<C-y>',
-    toggle_mark = '<Tab>',
-    cancel = 'q',
-  },
+    keymaps = {
+        accept = '<CR>',
+        accept_dir = '<C-y>',
+        toggle_mark = '<Tab>',
+        cancel = 'q',
+    },
 
-  winbar = true,                    -- show what was asked for above the buffer
-  confirm_filter_mismatch = true,
-  auto_install = true,              -- keep the registration in step on startup
-  manage_portal_preference = true,  -- also point ~/.config/xdg-desktop-portal at it
+    winbar = true,                    -- show what was asked for above the buffer
+    confirm_filter_mismatch = true,
+    auto_install = true,              -- keep the registration in step on startup
+    manage_portal_preference = true,  -- also point ~/.config/xdg-desktop-portal at it
 }
 ```
 
 `:OilFileChooser status` prints what is installed and what has drifted;
 `install` and `uninstall` do the obvious. Uninstalling hands the dialog back to
 GTK.
+
+The daemon picks a terminal itself rather than reading one from config: it
+checks `$TERMINAL` env var and uses it if it's set to something on `$PATH`; 
+otherwise it falls back to the first terminal found from: `kitty`, `ghostty`, `wezterm`,
+`foot`, `alacritty`, in that order. A `$TERMINAL` outside that list still works, just
+without the window-class flag used for WM rules. The editor launched is
+always `nvim`.
 
 ## How it works
 
@@ -85,11 +88,6 @@ GTK.
 4. The daemon turns those paths into `file://` URIs and answers the D-Bus call.
    No response file means the user cancelled.
 
-The request never becomes code: it reaches Neovim as JSON, not as an
-interpolated `-c "lua ..."` chunk. That matters because every string in it —
-`current_name` above all, which a browser takes from `Content-Disposition` —
-comes from whichever application opened the dialog.
-
 Dialogs are answered from a child watch rather than a blocking wait, so two
 applications asking at once get two windows. `org.freedesktop.impl.portal.Request.Close`
 is honoured, so an application that gives up takes its dialog with it.
@@ -101,7 +99,6 @@ is honoured, so an application that gives up takes its dialog with it.
 | `~/.local/share/xdg-desktop-portal/portals/oil-filechooser.portal` | Declares the backend |
 | `~/.local/share/dbus-1/services/org.freedesktop.impl.portal.desktop.oil-filechooser.service` | D-Bus activation |
 | `~/.config/systemd/user/oil-filechooser.service` | The unit, enabled `WantedBy=xdg-desktop-portal.service` |
-| `~/.config/oil-filechooser/config.json` | Terminal and editor argv, read by the daemon per request |
 | `~/.config/xdg-desktop-portal/portals.conf` and `<desktop>-portals.conf` | Routes `FileChooser` here, keeping the existing `default=` chain |
 
 ## Testing
@@ -113,6 +110,3 @@ tests/request.py open --multiple --filter '*.png' --folder ~/Pictures
 tests/request.py save --name notes.md
 tests/request.py --portal open          # through xdg-desktop-portal, end to end
 ```
-
-Reach for it rather than `gdbus call`: gdbus's command line parser mangles a
-bytestring inside a variant, and `current_folder` is exactly that type.
