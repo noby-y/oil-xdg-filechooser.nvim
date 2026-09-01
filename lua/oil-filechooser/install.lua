@@ -8,8 +8,6 @@
 --- disk with what the current options imply, and `sync()` only touches the
 --- files that differ. That is what lets it run on every startup.
 
-local config = require('oil-filechooser.config')
-
 local M = {}
 
 local APP = 'oil-filechooser'
@@ -92,7 +90,6 @@ function M.paths()
 		portal = vim.fs.joinpath(data_home, 'xdg-desktop-portal', 'portals', APP .. '.portal'),
 		dbus = vim.fs.joinpath(data_home, 'dbus-1', 'services', BUS_NAME .. '.service'),
 		unit = vim.fs.joinpath(config_home, 'systemd', 'user', UNIT),
-		config = vim.fs.joinpath(config_home, APP, 'config.json'),
 		wants = vim.fs.joinpath(config_home, 'systemd', 'user', 'xdg-desktop-portal.service.wants', UNIT),
 		portal_dir = vim.fs.joinpath(config_home, 'xdg-desktop-portal'),
 	}
@@ -171,14 +168,9 @@ end
 
 --- Every file the installation consists of, path -> exact content.
 --- @param opts table
---- @return table<string, string>, string|nil err
+--- @return table<string, string>
 function M.desired(opts)
 	local paths = M.paths()
-	local terminal = config.terminal_argv(opts)
-	if not terminal then
-		return {}, 'no terminal found; set `terminal` in the plugin options'
-	end
-
 	local files = {}
 	local use_in = table.concat(desktops(), ';')
 
@@ -215,13 +207,6 @@ function M.desired(opts)
 		'',
 	}, '\n')
 
-	-- Fixed key order: the file is compared byte for byte on every startup.
-	files[paths.config] = string.format(
-		'{\n  "terminal": %s,\n  "editor": %s\n}\n',
-		vim.json.encode(terminal),
-		vim.json.encode(opts.editor)
-	)
-
 	if opts.manage_portal_preference then
 		-- A desktop-specific file outranks the generic one, so the generic file
 		-- alone would leave XDG_CURRENT_DESKTOP=Hyprland on GTK.
@@ -237,19 +222,15 @@ function M.desired(opts)
 		end
 	end
 
-	return files, nil
+	return files
 end
 
 -- -- Inspecting and applying -----------------------------------------------------
 
 --- @param opts table
---- @return {stale: string[], enabled: boolean, preference_stale: boolean, err: string|nil}
+--- @return {stale: string[], enabled: boolean, preference_stale: boolean}
 function M.check(opts)
-	local files, err = M.desired(opts)
-	if err then
-		return { stale = {}, enabled = false, preference_stale = false, err = err }
-	end
-
+	local files = M.desired(opts)
 	local paths = M.paths()
 	local stale, preference_stale = {}, false
 	for path, content in pairs(files) do
@@ -265,7 +246,7 @@ function M.check(opts)
 	-- `WantedBy=xdg-desktop-portal.service` means enabling leaves this symlink
 	-- behind, which is cheaper to look at than asking systemctl.
 	local enabled = vim.uv.fs_lstat(paths.wants) ~= nil
-	return { stale = stale, enabled = enabled, preference_stale = preference_stale, err = nil }
+	return { stale = stale, enabled = enabled, preference_stale = preference_stale }
 end
 
 --- @param commands string[][]
@@ -295,9 +276,6 @@ end
 function M.sync(opts, cb)
 	cb = cb or function() end
 	local status = M.check(opts)
-	if status.err then
-		return cb({}, { status.err })
-	end
 	if #status.stale == 0 and status.enabled then
 		return cb({}, {})
 	end
@@ -337,7 +315,7 @@ function M.uninstall(opts, cb)
 	local paths = M.paths()
 
 	run_all({ { 'systemctl', '--user', 'disable', '--now', UNIT } }, function(errors)
-		for _, path in ipairs({ paths.portal, paths.dbus, paths.unit, paths.config }) do
+		for _, path in ipairs({ paths.portal, paths.dbus, paths.unit }) do
 			os.remove(path)
 		end
 		if opts.manage_portal_preference then
@@ -370,12 +348,8 @@ function M.status(opts)
 		'oil-filechooser',
 		'  plugin:   ' .. M.root(),
 		'  daemon:   ' .. daemon_command(),
-		'  terminal: ' .. table.concat(config.terminal_argv(opts) or { '(none found)' }, ' '),
 		'  unit:     ' .. (status.enabled and 'enabled' or 'not enabled'),
 	}
-	if status.err then
-		table.insert(lines, '  error:    ' .. status.err)
-	end
 	if #status.stale == 0 then
 		table.insert(lines, '  files:    up to date')
 	else

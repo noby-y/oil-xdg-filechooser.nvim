@@ -50,8 +50,6 @@ confirm, because the application is free to reject it - usually silently.
 
 ```lua
 opts = {
-    class = 'oil-filechooser',   -- window class of the dialog, for WM rules
-
     keymaps = {
         accept = '<CR>',
         accept_dir = '<C-y>',
