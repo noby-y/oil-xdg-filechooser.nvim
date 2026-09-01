@@ -9,8 +9,10 @@ Installing it is adding the plugin. It registers itself with
 `xdg-desktop-portal` on startup and keeps that registration in step with its
 options; nothing is written outside `$HOME` and nothing needs root.
 
+## Installation
+
 <details>
-<summary><a href="https://github.com/folke/lazy.nvim">lazy.nvim</a></summary>
+<summary>With <a href="https://github.com/folke/lazy.nvim">lazy.nvim</a></summary>
 
 ```lua
 {
@@ -25,7 +27,7 @@ options; nothing is written outside `$HOME` and nothing needs root.
 </details>
 
 <details>
-<summary><code>vim.pack</code> (Neovim 0.12+)</summary>
+<summary>With <code>vim.pack</code> (Neovim 0.12+)</summary>
 
 ```lua
 vim.pack.add({
@@ -84,16 +86,29 @@ opts = {
 }
 ```
 
-`:OilFileChooser status` prints what is installed and what has drifted;
-`install` and `uninstall` will manually add/remove the necessary files for portal preference / filechooser service. Uninstalling hands the dialog back to
-GTK.
+`:OilFileChooser` command has 3 arguments:
+- `status` prints what is installed and what is off-sync
+- `install` and `uninstall` will manually add/remove the necessary files for portal preference / filechooser service. Uninstalling hands the dialog back to GTK.
 
-The daemon picks a terminal itself rather than reading one from config: it
-checks `$TERMINAL` env var and uses it if it's set to something on `$PATH`; 
-otherwise it falls back to the first terminal found from: `kitty`, `ghostty`, `wezterm`,
-`foot`, `alacritty`, in that order. A `$TERMINAL` outside that list still works, just
-without the window-class flag used for WM rules. The editor launched is
-always `nvim`.
+The daemon picks a terminal based on `$TERMINAL` env var and uses it if it's set to
+something on `$PATH`; otherwise it falls back to the first terminal found from:
+`kitty`, `ghostty`, `wezterm`, `foot`, `alacritty`, in that order.
+A `$TERMINAL` outside that list still works, but without the window-class flag used for WM rules.
+
+The flag sets the window class (app-id on Wayland) to `oil-filechooser`, which
+is what a WM rule matches on - a dialog is worth floating and centring (example with Hyprland):
+
+```lua
+hl.window_rule({
+	name = 'oil-filechooser',
+	match = { class = '^(oil-filechooser)$' },
+
+	float = true,
+	size = '(monitor_w*0.8) (monitor_h*0.8)',
+	move = '(monitor_w*0.1) (monitor_h*0.1)',
+})
+```
+
 
 ## How it works
 
