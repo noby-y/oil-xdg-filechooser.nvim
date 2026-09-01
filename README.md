@@ -1,11 +1,11 @@
 # oil-filechooser
 
-[Oil.nvim](https://github.com/stevearc/oil.nvim) as the system file dialog.
+This plugin uses [Oil.nvim](https://github.com/stevearc/oil.nvim) (also works with [Canola.nvim](https://github.com/barrettruth/canola.nvim)) as the system file dialog.
 Every application that asks the XDG portal for a file - browser upload
 buttons, Save As dialogs, etc - gets an oil buffer in a floating
 terminal instead of the GTK chooser.
 
-Installing it is adding the plugin. It registers itself with
+When you install the plugin it registers itself with
 `xdg-desktop-portal` on startup and keeps that registration in step with its
 options; nothing is written outside `$HOME` and nothing needs root.
 
@@ -52,9 +52,9 @@ used.
 | Key | Action |
 | --- | --- |
 | `<CR>` | Return the file under the cursor. On a directory, descend as usual. |
+| `<CR>` (visual) | Return every file in the range. Multi-select requests only. |
 | `<Tab>` | Mark a file. Multi-select requests only, and the only way to pick from two directories. |
 | `<C-y>` | Return the directory you are in. For a save request, ask for a filename in it first. |
-| `<CR>` (visual) | Return every file in the range. Multi-select requests only. |
 | `q` | Cancel. Quitting Neovim in any other way does the same. |
 
 It is an ordinary Neovim: rename, delete and create files in the oil buffer,
