@@ -9,16 +9,35 @@ Installing it is adding the plugin. It registers itself with
 `xdg-desktop-portal` on startup and keeps that registration in step with its
 options; nothing is written outside `$HOME` and nothing needs root.
 
+<details>
+<summary><a href="https://github.com/folke/lazy.nvim">lazy.nvim</a></summary>
+
 ```lua
 {
-    dir = vim.fn.stdpath('config') .. '/pkg/oil-filechooser',
-    name = 'oil-filechooser',
+    'noby-y/oil-xdg-filechooser.nvim',
     lazy = false,
     -- dependencies = { 'stevearc/oil.nvim' }, -- both plugins work
     dependencies = { 'barrettruth/canola.nvim' },
     opts = {},
 }
 ```
+
+</details>
+
+<details>
+<summary><code>vim.pack</code> (Neovim 0.12+)</summary>
+
+```lua
+vim.pack.add({
+    -- 'https://github.com/stevearc/oil.nvim', -- both plugins work
+    'https://github.com/barrettruth/canola.nvim',
+    'https://github.com/noby-y/oil-xdg-filechooser.nvim',
+})
+
+require('oil-filechooser').setup({})
+```
+
+</details>
 
 Requires `python-gobject` (the daemon is a GDBus service), systemd user
 services, and a terminal.
