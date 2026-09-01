@@ -315,11 +315,11 @@ local function map_buffer(bufnr)
 	map('n', keys.accept, function()
 		local lnum = vim.api.nvim_win_get_cursor(0)[1]
 		local path, is_dir = entry_at(bufnr, lnum)
-		if multiple and #state.marks > 0 then
-			return accept(vim.deepcopy(state.marks))
-		end
 		if not path or is_dir then
 			return oil.select()
+		end
+		if multiple and #state.marks > 0 then
+			return accept(vim.deepcopy(state.marks))
 		end
 		accept({ path })
 	end, 'return the entry under the cursor')
