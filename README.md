@@ -15,10 +15,6 @@ options; nothing is written outside `$HOME` and nothing needs root.
     name = 'oil-filechooser',
     lazy = false,
     dependencies = { 'stevearc/oil.nvim' },
-    build = function(plugin)
-        vim.opt.runtimepath:append(plugin.dir)
-        require('oil-filechooser').install()
-    end,
     opts = {},
 }
 ```
@@ -57,15 +53,19 @@ opts = {
         cancel = 'q',
     },
 
-    winbar = true,                    -- show what was asked for above the buffer
+    -- show what was asked for + keymaps above the buffer
+    winbar = true,
+    -- ask before selecting a filetype that doesn't match the request
     confirm_filter_mismatch = true,
-    auto_install = true,              -- keep the registration in step on startup
-    manage_portal_preference = true,  -- also point ~/.config/xdg-desktop-portal at it
+    -- auto-install (sync) on each startup (run `:OilFileChooser install` otherwise)
+    auto_install = true,
+    -- also point ~/.config/xdg-desktop-portal at it
+    manage_portal_preference = true,
 }
 ```
 
 `:OilFileChooser status` prints what is installed and what has drifted;
-`install` and `uninstall` do the obvious. Uninstalling hands the dialog back to
+`install` and `uninstall` will manually add/remove the necessary files for portal preference / filechooser service. Uninstalling hands the dialog back to
 GTK.
 
 The daemon picks a terminal itself rather than reading one from config: it
