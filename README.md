@@ -64,10 +64,10 @@ the process exits.
 If the file you return matches none of the request's filters you are asked to
 confirm, because the application is free to reject it - usually silently.
 
-## Options
+## Default config
 
 ```lua
-opts = {
+{
     keymaps = {
         accept = '<CR>',
         accept_dir = '<C-y>',
