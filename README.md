@@ -3,7 +3,7 @@
 This plugin uses [Oil.nvim](https://github.com/stevearc/oil.nvim) (also works with [Canola.nvim](https://github.com/barrettruth/canola.nvim)) as the system file dialog.
 Every application that asks the XDG portal for a file - browser upload
 buttons, Save As dialogs, etc - gets an oil buffer in a floating
-terminal instead of the GTK chooser.
+terminal instead of the GTK chooser (only works on Linux).
 
 When you install the plugin it registers itself with
 `xdg-desktop-portal` on startup and keeps that registration in step with its
