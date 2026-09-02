@@ -106,6 +106,22 @@ local function accept(paths)
 		end
 	end
 
+	if state.opts.confirm_overwrite and state.request.method ~= 'OpenFile' then
+		local existing = vim.tbl_filter(function(path)
+			return vim.uv.fs_stat(path) ~= nil
+		end, paths)
+		if #existing > 0 then
+			local prompt = string.format(
+				'%s already %s.\nOverwrite?',
+				table.concat(vim.tbl_map(vim.fs.basename, existing), ', '),
+				#existing == 1 and 'exists' or 'exist'
+			)
+			if vim.fn.confirm(prompt, '&Yes\n&No', 2) ~= 1 then
+				return
+			end
+		end
+	end
+
 	request_mod.respond(state.request, paths)
 end
 

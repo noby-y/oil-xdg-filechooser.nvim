@@ -63,9 +63,6 @@ It is an ordinary Neovim: rename, delete and create files in the oil buffer,
 open a terminal, edit something on the way. The application stays blocked until
 the process exits.
 
-If the file you return matches none of the request's filters you are asked to
-confirm, because the application is free to reject it - usually silently.
-
 ## Default config
 
 ```lua
@@ -79,8 +76,10 @@ confirm, because the application is free to reject it - usually silently.
 
     -- show what was asked for + keymaps above the buffer
     winbar = true,
-    -- ask before selecting a filetype that doesn't match the request
+    -- ask before selecting a filetype that doesn't match the request filter
     confirm_filter_mismatch = true,
+    -- ask before saving over an existing file
+    confirm_overwrite = true,
     -- auto-install (sync) on each startup (run `:OilFileChooser install` otherwise)
     auto_install = true,
     -- also point ~/.config/xdg-desktop-portal at it

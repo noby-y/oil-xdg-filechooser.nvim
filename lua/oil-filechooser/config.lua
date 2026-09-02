@@ -19,6 +19,9 @@ M.defaults = {
 	--- Ask before returning a file that matches none of the request's filters.
 	--- The application is free to reject it, usually silently.
 	confirm_filter_mismatch = true,
+	--- Ask before answering a save request with a file that already exists. The
+	--- application overwrites it without a word of its own.
+	confirm_overwrite = true,
 
 	--- Register the portal backend on startup whenever the files on disk do not
 	--- match these options. This is what makes adding the plugin the whole
