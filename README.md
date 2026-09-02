@@ -9,6 +9,8 @@ When you install the plugin it registers itself with
 `xdg-desktop-portal` on startup and keeps that registration in step with its
 options; nothing is written outside `$HOME` and nothing needs root.
 
+https://github.com/user-attachments/assets/39f85590-5096-4d58-a823-fdf5ad02f223
+
 ## Installation
 
 <details>
