@@ -83,7 +83,7 @@ REQUEST_XML = f"""
 # Priority order when nothing else identifies a terminal, and the table
 # `detect_terminal` checks $TERMINAL against.
 FALLBACK_TERMINALS = [
-    ["kitty", "--class", APP, "-e"],
+    ["kitty", "-1", "--wait-for-single-instance-window-close", "--class", APP, "-e"],
     ["ghostty", f"--class={APP}", "-e"],
     ["wezterm", "start", "--class", APP, "--"],
     ["foot", f"--app-id={APP}", "-e"],
