@@ -86,6 +86,9 @@ the process exits.
     manage_portal_preference = true,
     -- also open folders (`inode/directory`) with oil
     manage_directory_handler = true,
+    -- interpreter the daemon is started with; nil picks the first python3 on
+    -- PATH outside a virtualenv (it needs the system python-gobject)
+    python = nil,
 }
 ```
 

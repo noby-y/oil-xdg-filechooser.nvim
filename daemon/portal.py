@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """org.freedesktop.impl.portal.FileChooser backend that answers with Neovim + oil.
 
 xdg-desktop-portal hands us a request over D-Bus, we open a terminal running
