@@ -73,13 +73,46 @@ function M.root()
 	return vim.fs.normalize(vim.fs.dirname(vim.fs.dirname(vim.fs.dirname(source))))
 end
 
---- @return string
-local function daemon_command()
-	local python = vim.fn.exepath('python3')
-	if python == '' then
-		python = '/usr/bin/python3'
+--- A virtualenv's `bin` directory: either the one this Neovim was started
+--- under, or any directory sitting next to a `pyvenv.cfg`. The daemon is a
+--- long-lived system service that needs the system `python-gobject`, so the
+--- project venv that happened to be active when Neovim started must not end up
+--- baked into the generated unit files.
+--- @param dir string
+--- @return boolean
+local function is_venv_bin(dir)
+	for _, var in ipairs({ 'VIRTUAL_ENV', 'CONDA_PREFIX' }) do
+		local prefix = vim.env[var]
+		if prefix and prefix ~= '' and dir == vim.fs.normalize(vim.fs.joinpath(prefix, 'bin')) then
+			return true
+		end
 	end
-	return python .. ' ' .. vim.fs.joinpath(M.root(), 'daemon', 'portal.py')
+	return vim.uv.fs_stat(vim.fs.joinpath(vim.fs.dirname(dir), 'pyvenv.cfg')) ~= nil
+end
+
+--- @param opts table
+--- @return string
+function M.python(opts)
+	local configured = opts and opts.python
+	if configured and configured ~= '' then
+		return vim.fs.normalize(vim.fn.expand(configured))
+	end
+
+	for _, dir in ipairs(vim.split(vim.env.PATH or '', ':', { trimempty = true })) do
+		dir = vim.fs.normalize(dir)
+		local candidate = vim.fs.joinpath(dir, 'python3')
+		if vim.uv.fs_stat(candidate) and not is_venv_bin(dir) then
+			return candidate
+		end
+	end
+
+	return '/usr/bin/python3'
+end
+
+--- @param opts table
+--- @return string
+local function daemon_command(opts)
+	return M.python(opts) .. ' ' .. vim.fs.joinpath(M.root(), 'daemon', 'portal.py')
 end
 
 -- -- Generated file contents ----------------------------------------------------
@@ -254,7 +287,7 @@ function M.desired(opts)
 	files[paths.dbus] = table.concat({
 		'[D-BUS Service]',
 		'Name=' .. BUS_NAME,
-		'Exec=' .. daemon_command(),
+		'Exec=' .. daemon_command(opts),
 		'SystemdService=' .. UNIT,
 		'',
 	}, '\n')
@@ -268,7 +301,7 @@ function M.desired(opts)
 		'[Service]',
 		'Type=dbus',
 		'BusName=' .. BUS_NAME,
-		'ExecStart=' .. daemon_command(),
+		'ExecStart=' .. daemon_command(opts),
 		'Slice=session.slice',
 		'',
 		'[Install]',
@@ -468,7 +501,7 @@ function M.status(opts)
 	local lines = {
 		'oil-filechooser',
 		'  plugin:   ' .. M.root(),
-		'  daemon:   ' .. daemon_command(),
+		'  daemon:   ' .. daemon_command(opts),
 		'  unit:     ' .. (status.enabled and 'enabled' or 'not enabled'),
 	}
 	if #status.stale == 0 then
