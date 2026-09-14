@@ -30,6 +30,11 @@ M.defaults = {
 	--- Also point ~/.config/xdg-desktop-portal/*.conf at this backend. Without
 	--- it the backend is installed but the portal keeps using GTK.
 	manage_portal_preference = true,
+	--- Also become the `inode/directory` handler in ~/.config/mimeapps.list, so
+	--- that opening a folder opens oil in a terminal. Off by default, and it
+	--- overwrites whatever handler is set; turning it back off takes the key
+	--- out again rather than putting the old one back.
+	manage_directory_handler = true,
 }
 
 --- @type table

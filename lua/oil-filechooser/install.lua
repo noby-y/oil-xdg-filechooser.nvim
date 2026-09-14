@@ -14,6 +14,8 @@ local APP = 'oil-filechooser'
 local BUS_NAME = 'org.freedesktop.impl.portal.desktop.' .. APP
 local UNIT = APP .. '.service'
 local KEY = 'org.freedesktop.impl.portal.FileChooser'
+local DESKTOP = APP .. '.desktop'
+local MIME = 'inode/directory'
 
 -- -- Small filesystem helpers ---------------------------------------------------
 
@@ -92,6 +94,9 @@ function M.paths()
 		unit = vim.fs.joinpath(config_home, 'systemd', 'user', UNIT),
 		wants = vim.fs.joinpath(config_home, 'systemd', 'user', 'xdg-desktop-portal.service.wants', UNIT),
 		portal_dir = vim.fs.joinpath(config_home, 'xdg-desktop-portal'),
+		applications = vim.fs.joinpath(data_home, 'applications'),
+		desktop = vim.fs.joinpath(data_home, 'applications', DESKTOP),
+		mimeapps = vim.fs.joinpath(config_home, 'mimeapps.list'),
 	}
 end
 
@@ -166,6 +171,70 @@ local function preference_content(basename, backend)
 	return table.concat(out, '\n') .. '\n'
 end
 
+--- Sets (or clears) the `inode/directory` default in mimeapps.list, leaving
+--- every other association alone. Same as `preference_content` one file over:
+--- our key is ours, the rest of the file is not.
+--- @param handler string|nil  nil removes the key
+--- @return string|nil content  nil when there is nothing to write
+local function mimeapps_content(handler)
+	local existing = read_file(M.paths().mimeapps)
+
+	if not existing then
+		if not handler then
+			return nil
+		end
+		return table.concat({ '[Default Applications]', MIME .. '=' .. handler, '' }, '\n')
+	end
+
+	local lines = vim.split(existing:gsub('\n$', ''), '\n')
+	local section, header, replaced, removed = nil, nil, false, false
+	local out = {}
+	for _, line in ipairs(lines) do
+		local name = line:match('^%s*%[(.-)%]%s*$')
+		if name then
+			section = name
+			if name == 'Default Applications' then
+				header = #out + 1
+			end
+		end
+		local value = section == 'Default Applications'
+			and line:match('^%s*' .. vim.pesc(MIME) .. '%s*=%s*(.-)%s*$')
+		if value then
+			replaced = true
+			if handler then
+				table.insert(out, MIME .. '=' .. handler)
+			elseif value ~= DESKTOP then
+				-- Not ours to remove: a handler set by hand, or by a file
+				-- manager, either before this ever ran or since.
+				table.insert(out, line)
+			else
+				removed = true
+			end
+		else
+			table.insert(out, line)
+		end
+	end
+
+	if not replaced and handler then
+		if header then
+			table.insert(out, header + 1, MIME .. '=' .. handler)
+		else
+			vim.list_extend(out, { '', '[Default Applications]', MIME .. '=' .. handler })
+		end
+	elseif removed and header then
+		-- The section was ours too if our key was all that was in it.
+		local following = out[header + 1]
+		if not following or following:match('^%s*$') or following:match('^%s*%[') then
+			table.remove(out, header)
+			if header > 1 and out[header - 1]:match('^%s*$') then
+				table.remove(out, header - 1)
+			end
+		end
+	end
+
+	return table.concat(out, '\n') .. '\n'
+end
+
 --- Every file the installation consists of, path -> exact content.
 --- @param opts table
 --- @return table<string, string>
@@ -222,22 +291,46 @@ function M.desired(opts)
 		end
 	end
 
+	if opts.manage_directory_handler then
+		files[paths.desktop] = table.concat({
+			'[Desktop Entry]',
+			'Type=Application',
+			'Name=Neovim (oil)',
+			'Comment=Browse a directory in Neovim',
+			'Exec=' .. daemon_command() .. ' --open %f',
+			'Terminal=false',
+			'StartupWMClass=' .. APP,
+			'MimeType=' .. MIME .. ';',
+			'Categories=System;FileTools;FileManager;',
+			'',
+		}, '\n')
+	end
+
+	-- Unconditional: with the option off this restores the handler that was
+	-- there before, and is a no-op on a mimeapps.list the plugin never touched.
+	local mimeapps = mimeapps_content(opts.manage_directory_handler and DESKTOP or nil)
+	if mimeapps then
+		files[paths.mimeapps] = mimeapps
+	end
+
 	return files
 end
 
 -- -- Inspecting and applying -----------------------------------------------------
 
 --- @param opts table
---- @return {stale: string[], enabled: boolean, preference_stale: boolean}
+--- @return {stale: string[], enabled: boolean, preference_stale: boolean, desktop_stale: boolean}
 function M.check(opts)
 	local files = M.desired(opts)
 	local paths = M.paths()
-	local stale, preference_stale = {}, false
+	local stale, preference_stale, desktop_stale = {}, false, false
 	for path, content in pairs(files) do
 		if read_file(path) ~= content then
 			table.insert(stale, path)
 			if vim.startswith(path, paths.portal_dir) then
 				preference_stale = true
+			elseif path == paths.desktop then
+				desktop_stale = true
 			end
 		end
 	end
@@ -246,7 +339,22 @@ function M.check(opts)
 	-- `WantedBy=xdg-desktop-portal.service` means enabling leaves this symlink
 	-- behind, which is cheaper to look at than asking systemctl.
 	local enabled = vim.uv.fs_lstat(paths.wants) ~= nil
-	return { stale = stale, enabled = enabled, preference_stale = preference_stale }
+	return {
+		stale = stale,
+		enabled = enabled,
+		preference_stale = preference_stale,
+		desktop_stale = desktop_stale,
+	}
+end
+
+--- `update-desktop-database` rebuilds the mimeinfo cache the launchers read.
+--- Missing on a system without desktop-file-utils, and the entry still works
+--- without it, so this is best-effort.
+--- @param commands string[][]
+local function add_desktop_database(commands)
+	if vim.fn.executable('update-desktop-database') == 1 then
+		table.insert(commands, { 'update-desktop-database', M.paths().applications })
+	end
 end
 
 --- @param commands string[][]
@@ -303,6 +411,9 @@ function M.sync(opts, cb)
 		-- The portal only reads its preference files at startup.
 		table.insert(commands, { 'systemctl', '--user', 'restart', 'xdg-desktop-portal.service' })
 	end
+	if status.desktop_stale then
+		add_desktop_database(commands)
+	end
 
 	run_all(commands, function(command_errors)
 		vim.list_extend(errors, command_errors)
@@ -317,7 +428,7 @@ function M.uninstall(opts, cb)
 	local paths = M.paths()
 
 	run_all({ { 'systemctl', '--user', 'disable', '--now', UNIT } }, function(errors)
-		for _, path in ipairs({ paths.portal, paths.dbus, paths.unit }) do
+		for _, path in ipairs({ paths.portal, paths.dbus, paths.unit, paths.desktop }) do
 			os.remove(path)
 		end
 		if opts.manage_portal_preference then
@@ -332,10 +443,18 @@ function M.uninstall(opts, cb)
 				end
 			end
 		end
-		run_all({
+
+		local mimeapps = mimeapps_content(nil)
+		if mimeapps then
+			write_file(paths.mimeapps, mimeapps)
+		end
+
+		local commands = {
 			{ 'systemctl', '--user', 'daemon-reload' },
 			{ 'systemctl', '--user', 'restart', 'xdg-desktop-portal.service' },
-		}, function(more)
+		}
+		add_desktop_database(commands)
+		run_all(commands, function(more)
 			vim.list_extend(errors, more)
 			cb(errors)
 		end)

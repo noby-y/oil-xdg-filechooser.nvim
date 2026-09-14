@@ -113,6 +113,21 @@ def detect_terminal():
     )
 
 
+def open_directory(path):
+    """`--open DIR`: the Exec line of the generated desktop entry.
+
+    Nothing to do with the portal -- this is the `inode/directory` handler, so
+    that whatever opens a folder lands in the same terminal the dialogs use.
+    Replaces this process rather than supervising the terminal: there is no
+    D-Bus call waiting on the answer.
+    """
+    if path.startswith("file://"):
+        path = GLib.filename_from_uri(path)[0]
+    terminal = detect_terminal()
+    argv = terminal + ["nvim", path or GLib.get_home_dir()]
+    os.execvp(argv[0], argv)
+
+
 def runtime_dir():
     path = os.path.join(GLib.get_user_runtime_dir(), APP)
     os.makedirs(path, mode=0o700, exist_ok=True)
@@ -382,6 +397,10 @@ class Backend:
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--open":
+        open_directory(sys.argv[2] if len(sys.argv) > 2 else "")
+        return
+
     loop = GLib.MainLoop()
     connection = Gio.bus_get_sync(Gio.BusType.SESSION, None)
     Backend(connection)

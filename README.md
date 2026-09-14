@@ -84,8 +84,11 @@ the process exits.
     auto_install = true,
     -- also point ~/.config/xdg-desktop-portal at it
     manage_portal_preference = true,
+    -- also open folders (`inode/directory`) with oil
+    manage_directory_handler = true,
 }
 ```
+
 
 `:OilFileChooser` command has 3 arguments:
 - `status` prints what is installed and what is off-sync
@@ -95,6 +98,9 @@ The daemon picks a terminal based on `$TERMINAL` env var and uses it if it's set
 something on `$PATH`; otherwise it falls back to the first terminal found from:
 `kitty`, `ghostty`, `wezterm`, `foot`, `alacritty`, in that order.
 A `$TERMINAL` outside that list still works, but without the window-class flag used for WM rules.
+
+Folders opened through `manage_directory_handler` go through the same
+detection, so they land in the same terminal with the same window class.
 
 The flag sets the window class (app-id on Wayland) to `oil-filechooser`, which
 is what a WM rule matches on - a dialog is worth floating and centring (example with Hyprland):
@@ -134,6 +140,8 @@ is honoured, so an application that gives up takes its dialog with it.
 | `~/.local/share/dbus-1/services/org.freedesktop.impl.portal.desktop.oil-filechooser.service` | D-Bus activation |
 | `~/.config/systemd/user/oil-filechooser.service` | The unit, enabled `WantedBy=xdg-desktop-portal.service` |
 | `~/.config/xdg-desktop-portal/portals.conf` and `<desktop>-portals.conf` | Routes `FileChooser` here, keeping the existing `default=` chain |
+| `~/.local/share/applications/oil-filechooser.desktop` | The folder handler, with `manage_directory_handler` |
+| `~/.config/mimeapps.list` | Modifies just the `inode/directory` key when `manage_directory_handler = true` |
 
 ## Testing
 
