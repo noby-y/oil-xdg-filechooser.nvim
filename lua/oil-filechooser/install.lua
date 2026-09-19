@@ -94,6 +94,7 @@ end
 --- @return string
 function M.python(opts)
 	local configured = opts and opts.python
+	local configured = opts.python_path
 	if configured and configured ~= '' then
 		return vim.fs.normalize(vim.fn.expand(configured))
 	end

@@ -28,12 +28,12 @@ M.defaults = {
 	--- installation; there is nothing to run by hand.
 	auto_install = true,
 	--- Interpreter the generated D-Bus/systemd files start the daemon with. It
-	--- needs the system `python-gobject`, so nil (the default) picks the first
-	--- `python3` on PATH that is not inside a virtualenv -- opening Neovim with
-	--- a project venv active would otherwise install that venv's interpreter.
-	--- Set it to an absolute path if the autodetection guesses wrong.
+	--- needs the system `python-gobject`, so nil (the default) means
+	--- `/usr/bin/python3`, falling back to the first `python3` on PATH that is
+	--- not inside a virtualenv. Set it to an absolute path if your system
+	--- python lives somewhere else.
 	--- @type string|nil
-	python = nil,
+	python_path = nil,
 	--- Also point ~/.config/xdg-desktop-portal/*.conf at this backend. Without
 	--- it the backend is installed but the portal keeps using GTK.
 	manage_portal_preference = true,
