@@ -74,10 +74,7 @@ function M.root()
 end
 
 --- A virtualenv's `bin` directory: either the one this Neovim was started
---- under, or any directory sitting next to a `pyvenv.cfg`. The daemon is a
---- long-lived system service that needs the system `python-gobject`, so the
---- project venv that happened to be active when Neovim started must not end up
---- baked into the generated unit files.
+--- under, or any directory sitting next to a `pyvenv.cfg`.
 --- @param dir string
 --- @return boolean
 local function is_venv_bin(dir)
@@ -90,19 +87,28 @@ local function is_venv_bin(dir)
 	return vim.uv.fs_stat(vim.fs.joinpath(vim.fs.dirname(dir), 'pyvenv.cfg')) ~= nil
 end
 
+--- The daemon needs the system `python-gobject`, so `/usr/bin/python3` wins
+--- whenever it exists. Taking the first `python3` on PATH would hand systemd
+--- whatever the user's shell had in front of it, and neither a project venv
+--- nor a pyenv shim can `import gi`.
 --- @param opts table
 --- @return string
-function M.python(opts)
-	local configured = opts and opts.python
+local function python(opts)
 	local configured = opts.python_path
 	if configured and configured ~= '' then
-		return vim.fs.normalize(vim.fn.expand(configured))
+		return vim.fs.normalize(configured)
 	end
 
+	if vim.fn.executable('/usr/bin/python3') == 1 then
+		return '/usr/bin/python3'
+	end
+
+	-- Distributions that keep nothing in /usr/bin (NixOS, Guix). Skipping venvs
+	-- is what stops an active one from being baked into the unit files.
 	for _, dir in ipairs(vim.split(vim.env.PATH or '', ':', { trimempty = true })) do
 		dir = vim.fs.normalize(dir)
 		local candidate = vim.fs.joinpath(dir, 'python3')
-		if vim.uv.fs_stat(candidate) and not is_venv_bin(dir) then
+		if vim.fn.executable(candidate) == 1 and not is_venv_bin(dir) then
 			return candidate
 		end
 	end
@@ -113,7 +119,7 @@ end
 --- @param opts table
 --- @return string
 local function daemon_command(opts)
-	return M.python(opts) .. ' ' .. vim.fs.joinpath(M.root(), 'daemon', 'portal.py')
+	return python(opts) .. ' ' .. vim.fs.joinpath(M.root(), 'daemon', 'portal.py')
 end
 
 -- -- Generated file contents ----------------------------------------------------
@@ -426,6 +432,14 @@ function M.sync(opts, cb)
 
 	local files = M.desired(opts)
 	local errors, changed = {}, {}
+
+	-- A bad `python` would otherwise install cleanly and fail at D-Bus
+	-- activation time, where the only trace is journalctl.
+	local interpreter = python(opts)
+	if vim.fn.executable(interpreter) == 0 then
+		table.insert(errors, interpreter .. ': not executable; set `python_path` to a python3 with `python-gobject`')
+	end
+
 	for _, path in ipairs(status.stale) do
 		local err = write_file(path, files[path])
 		if err then
