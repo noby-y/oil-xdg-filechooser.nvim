@@ -337,7 +337,7 @@ function M.desired(opts)
 			'Type=Application',
 			'Name=Neovim (oil)',
 			'Comment=Browse a directory in Neovim',
-			'Exec=' .. daemon_command() .. ' --open %f',
+			'Exec=' .. daemon_command(opts) .. ' --open %f',
 			'Terminal=false',
 			'StartupWMClass=' .. APP,
 			'MimeType=' .. MIME .. ';',
